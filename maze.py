@@ -106,5 +106,6 @@ class maze:
 
 game = maze(16)
 game.generate_playGround()
+game.add_extra_paths(extra_count=15)
 maze_pattern = game.generate_playGround_pattern()
 game.print_maze(maze_pattern)
