@@ -1,5 +1,8 @@
 import os
+import random
 from enum import Enum
+from types import new_class, prepare_class
+from typing import Self
 
 
 class objects_in_game(Enum):
@@ -12,18 +15,21 @@ class maze:
     def __init__(self, game_size) -> None:
         # game_size + walls
         self.play_ground_size = game_size + 2
-        self.game_size = game_size
         self.keys = ["w", "s", "a", "d"]
-        self.goal_location = (0, 4)
-        self.player_location = (0, 0)
+        self.goal_location = (1, 1)
+        self.player_location = (game_size, game_size)
         self.play_ground = {}
+        self.wall_range = self.play_ground_size - 1
 
     def generate_playGround(self):
-        wall_range = self.play_ground_size - 1
         for row in range(self.play_ground_size):
             for col in range(self.play_ground_size):
-                if col % wall_range == 0 or row % wall_range == 0:
-                    self.play_ground[(row, col)] = objects_in_game.wall
+                # if col % self.wall_range == 0 or row % self.wall_range == 0:
+                # everythin is wall , rather then playser position nad goal
+                self.play_ground[(row, col)] = objects_in_game.wall
+
+        self.play_ground[self.goal_location] = objects_in_game.goal
+        self._cerve_the_path(self.player_location[0], self.player_location[1])
 
     def generate_playGround_pattern(self):
         pattern = []
@@ -43,6 +49,23 @@ class maze:
             pattern.append(pattern_row)
         return pattern
 
+    def _cerve_the_path(self, x, y):
+        self.play_ground[(x, y)] = objects_in_game.space
+
+        directions = [(0, 2), (0, -2), (2, 0), (-2, 0)]
+        random.shuffle(directions)
+
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+
+            if 0 < nx < self.wall_range and 0 < ny < self.wall_range:
+                if self.play_ground.get((nx, ny)) == objects_in_game.wall:
+                    mid_x = (x + nx) // 2
+                    mid_y = (y + ny) // 2
+
+                    self.play_ground[(mid_x, mid_y)] = objects_in_game.space
+                    self._cerve_the_path(nx, ny)
+
     def clear_screan(self):
         os.system("clear")
 
@@ -52,7 +75,36 @@ class maze:
             print(" ".join(row))
 
 
-game = maze(8)
+""" my own method is not worked 
+    def _cerve_the_path(self, init_x, init_y): # In here, I try to randomly create a path instead of choosing walls.
+        # Also, to avoid looping around, I am choosing the next 2 or 3 positions.
+        # For example, if I am at (0, 0), I can choose any house within 2 or 3 (not decided yet) directions around it.
+        # Then simply just carve one position, and then in that new direction, I can decide again.
+
+        jump_size = 2
+        self.play_ground[(init_x, init_y)] = objects_in_game.space
+
+        # Choose a direction to move
+        decision = random.choice(
+            [(0, jump_size), (0, -jump_size), (jump_size, 0), (-jump_size, 0)]
+        )
+
+        next_x = init_x + decision[0]
+        next_y = init_y + decision[1]
+
+        # Check if new position is within bounds
+        if 0 < next_x < self.wall_range and 0 < next_y < self.wall_range:
+            if self.play_ground.get((next_x, next_y)) != objects_in_game.goal:
+                # if the current position is (0,0) and new direction is (0,2) , then i should cerve the position between them, which is (0,1)
+                mid_x = (init_x + next_x) // 2
+                mid_y = (init_y + next_y) // 2
+                self.play_ground[(mid_x, mid_y)] = objects_in_game.space
+
+                self._cerve_the_path(next_x, next_y)
+"""
+
+
+game = maze(16)
 game.generate_playGround()
 maze_pattern = game.generate_playGround_pattern()
 game.print_maze(maze_pattern)
