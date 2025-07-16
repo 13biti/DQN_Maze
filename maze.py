@@ -66,6 +66,31 @@ class maze:
                     self.play_ground[(mid_x, mid_y)] = objects_in_game.space
                     self._cerve_the_path(nx, ny)
 
+    def add_extra_paths(self, extra_count=10):
+        attempts = 0
+        added = 0
+
+        while added < extra_count and attempts < extra_count * 5:
+            x = random.randint(1, self.wall_range - 1)
+            y = random.randint(1, self.wall_range - 1)
+
+            if x % 2 == 1 or y % 2 == 1:  # only consider wall positions
+                neighbors = [
+                    ((x - 1, y), (x + 1, y)),
+                    ((x, y - 1), (x, y + 1)),
+                ]
+                for a, b in neighbors:
+                    if (
+                        a in self.play_ground
+                        and b in self.play_ground
+                        and self.play_ground[a] == objects_in_game.space
+                        and self.play_ground[b] == objects_in_game.space
+                    ):
+                        self.play_ground[(x, y)] = objects_in_game.space
+                        added += 1
+                        break
+            attempts += 1
+
     def clear_screan(self):
         os.system("clear")
 
@@ -73,6 +98,14 @@ class maze:
         self.clear_screan()
         for row in maze_pattern:
             print(" ".join(row))
+
+    def move_player(self, dx, dy):
+        new_x, new_y = self.player_location[0] + dx, self.player_location[1] + dy
+        if 0 < new_x < self.wall_range and 0 < new_y < self.wall_range:
+            if self.play_ground[(new_x, new_y)] != objects_in_game.wall:
+                return True
+        else:
+            return False
 
 
 """ my own method is not worked 
