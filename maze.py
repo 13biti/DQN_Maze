@@ -29,7 +29,7 @@ class maze:
                 self.play_ground[(row, col)] = objects_in_game.wall
 
         self.play_ground[self.goal_location] = objects_in_game.goal
-        self._cerve_the_path(self.player_location[0], self.player_location[1])
+        self._carve_the_path(self.player_location[0], self.player_location[1])
 
     def generate_playGround_pattern(self):
         pattern = []
@@ -51,7 +51,7 @@ class maze:
             pattern.append(pattern_row)
         return pattern
 
-    def _cerve_the_path(self, x, y):
+    def _carve_the_path(self, x, y):
         self.play_ground[(x, y)] = objects_in_game.space
 
         directions = [(0, 2), (0, -2), (2, 0), (-2, 0)]
@@ -66,7 +66,7 @@ class maze:
                     mid_y = (y + ny) // 2
 
                     self.play_ground[(mid_x, mid_y)] = objects_in_game.space
-                    self._cerve_the_path(nx, ny)
+                    self._carve_the_path(nx, ny)
 
     def add_extra_paths(self, extra_count=10):
         attempts = 0
@@ -105,9 +105,13 @@ class maze:
         new_x, new_y = self.player_location[0] + dx, self.player_location[1] + dy
         if 0 < new_x < self.wall_range and 0 < new_y < self.wall_range:
             if self.play_ground[(new_x, new_y)] != objects_in_game.wall:
-                return True
-        else:
-            return False
+                self.player_location = (new_x, new_y)  # Update player position
+                return (
+                    True
+                    if self.play_ground[(new_x, new_y)] == objects_in_game.goal
+                    else False
+                )
+        return False
 
 
 game = maze(16)
@@ -117,19 +121,21 @@ while True:
     maze_pattern = game.generate_playGround_pattern()
     game.print_maze(maze_pattern)
     key = getkey()
-    if key.lower() == keys[0]:
-        game_over = game.move_player(0, -1)
-    elif key.lower() == keys[1]:
-        game_over = game.move_player(0, 1)
-    elif key.lower() == keys[2]:
-        game_over = game.move_player(1, 0)
-    elif key.lower() == keys[3]:
-        game_over = game.move_player(-1, 0)
+    if key.lower() == "w":
+        game.move_player(-1, 0)  # up
+    elif key.lower() == "s":
+        game.move_player(1, 0)  # down
+    elif key.lower() == "a":
+        game.move_player(0, -1)  # left
+    elif key.lower() == "d":
+        game.move_player(0, 1)  # right
     elif key.lower() == "q":
         print("\nGame quit!")
         break
     else:
         continue
 
-    if game_over:
+    if game.player_location == game.goal_location:
+        game.print_maze(game.generate_playGround_pattern())
+        print("\n🎉 You reached the goal! 🎉")
         break
