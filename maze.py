@@ -15,9 +15,9 @@ class objects_in_game(Enum):
 class maze:
     def __init__(self, game_size) -> None:
         # game_size + walls
-        self.play_ground_size = game_size + 2
-        self.goal_location = (1, 1)
-        self.player_location = (game_size, game_size)
+        self.play_ground_size = game_size + 1
+        self.player_location = (1, 1)
+        self.goal_location = (game_size - 1, game_size - 1)
         self.play_ground = {}
         self.wall_range = self.play_ground_size - 1
 
@@ -28,8 +28,8 @@ class maze:
                 # everythin is wall , rather then playser position nad goal
                 self.play_ground[(row, col)] = objects_in_game.wall
 
-        self.play_ground[self.goal_location] = objects_in_game.goal
         self._carve_the_path(self.player_location[0], self.player_location[1])
+        self.play_ground[self.goal_location] = objects_in_game.goal
 
     def generate_playGround_pattern(self):
         pattern = []
@@ -64,7 +64,6 @@ class maze:
                 if self.play_ground.get((nx, ny)) == objects_in_game.wall:
                     mid_x = (x + nx) // 2
                     mid_y = (y + ny) // 2
-
                     self.play_ground[(mid_x, mid_y)] = objects_in_game.space
                     self._carve_the_path(nx, ny)
 
