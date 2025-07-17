@@ -29,7 +29,7 @@ class General_DQN_Agent:
         self.buffer_mem = []
         self.buffer_size = buffer_size
         self.model = self._initiate_model()
-        self.model.compile(loss="adam", optimizer=Adam(lr=self.lr))
+        self.model.compile(loss="mse", optimizer=Adam(lr=self.lr))
 
     def _initiate_model(self):
         return keras.Sequential(
