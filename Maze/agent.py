@@ -9,6 +9,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import mean_squared_error
 import copy
 from matplotlib import pyplot as plt
+import random
 
 
 class General_DQN_Agent:
@@ -16,20 +17,26 @@ class General_DQN_Agent:
         self,
         action_size,
         state_size,
-        learning_rate=0.01,
-        epsilon_policy=0.1,
-        batch_size=25,
+        learning_rate=0.001,
+        gamma=0.99,
+        epsilon=1.0,
+        epsilon_min=0.01,
+        epsilon_decay=0.995,
+        batch_size=32,
         buffer_size=2000,
     ) -> None:
         self.action_size = action_size
         self.state_size = state_size
         self.lr = learning_rate
-        self.epsilon = epsilon_policy
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.epsilon_min = epsilon_min
+        self.epsilon_decay = epsilon_decay
         self.batch_size = batch_size
         self.buffer_mem = []
-        self.buffer_size = buffer_size
         self.model = self._initiate_model()
-        self.model.compile(loss="mse", optimizer=Adam(lr=self.lr))
+        self.model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
+        self.buffer_size = buffer_size
 
     def _initiate_model(self):
         return keras.Sequential(
@@ -54,21 +61,33 @@ class General_DQN_Agent:
         )
 
     def train(self):
-        temp_buffer = copy.deepcopy(self.buffer_mem)
-        np.random.shuffle(temp_buffer)
-        batch_items = temp_buffer[0 : self.batch_size]
-        for item in batch_items:
-            # this Q(s,a)
-            Q_current_state_predict = self.model.predict(item["current_state"])
-            if not item["done"]:
+        # if there is not enough state in buffer then :
+        if len(self.buffer_mem) < self.batch_size:
+            return
+
+        batch = random.sample(self.buffer_mem, self.batch_size)
+        states = np.vstack([item["current_state"] for item in batch])
+        next_states = np.vstack([item["next_state"] for item in batch])
+        rewards = np.array([item["reward"] for item in batch])
+        actions = np.array([item["action"] for item in batch])
+        dones = np.array([item["done"] for item in batch])
+
+        # this Q(s,a)
+        q_current = self.model.predict(states, verbose=0)
+        q_next = self.model.predict(next_states, verbose=0)
+        q_targets = q_current.copy()
+        for i in range(self.batch_size):
+            if not dones[i]:
                 # r + gamma*argmax(Q(s',a))
-                Q_target = item["reward"] + self.epsilon * np.max(
-                    self.model.predict(item["next_state"])[0]
-                )
-                Q_current_state_predict[0][item["action"]] = Q_target
-                self.model.fit(
-                    item["current_state"], Q_current_state_predict, verbose=1
-                )
+                q_targets[i, actions[i]] = rewards[i] + self.gamma * np.max(q_next[i])
+            else:
+                q_targets[i, actions[i]] = rewards[i]
+        # trian the model
+        self.model.fit(states, q_targets, epochs=1, verbose=0)
+        """ this part is not complited yet 
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+            """
 
     def compute_action(self, current_state):
         if np.random.uniform(0, 1) < self.epsilon:
