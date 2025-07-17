@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 
 def main():
     # Environment parameters
-    game_size = 10  # Changed to even number for consistent maze generation
-    max_steps = game_size * 10
+    game_size = 8  # Changed to even number for consistent maze generation
+    max_steps = game_size * 20
     extra_paths = 10
     fixed_maze_episodes = 50
 
@@ -55,6 +55,7 @@ def main():
 
     # Training loop
     for episode in range(num_episodes):
+        state = env.reset()
         total_reward = 0
         done = False
         step = 0

@@ -36,31 +36,39 @@ class Maze:
         self.episode_count = 0
         self.fixed_maze = None
         self.prev_distance = None
+        self.reset_cycles = 0  # Track how many cycles of 100 episodes
+        self.episodes_per_cycle = 100  # Number of episodes per cycle
+        self.max_cycles = 5  # Number of cycles (n * 100 episodes) before hard reset
 
-    def reset(self):
-        """Reset the environment to the initial state."""
+    def soft_reset(self):
+        """Reset the environment to the initial state while keeping the same maze."""
         self.player_location = (1, 1)
         self.current_step = 0
         self.prev_distance = self._manhattan_distance(
             self.player_location, self.goal_location
         )
-
-        # Always generate a new maze if fixed_maze is None or not reusing
-        if (
-            self.fixed_maze is None
-            or self.fixed_maze_episodes == 0
-            or self.episode_count % self.fixed_maze_episodes != 0
-        ):
-            self.play_ground = {}
-            self.generate_playGround()
-            self.add_extra_paths(extra_count=self.extra_paths)
-            if self.fixed_maze_episodes > 0:
-                self.fixed_maze = self.play_ground.copy()
-        else:
-            self.play_ground = self.fixed_maze.copy()
-
-        self.episode_count += 1
         return self.get_state()
+
+    def hard_reset(self):
+        """Regenerate a new maze and reset the environment."""
+        self.play_ground = {}
+        self.generate_playGround()
+        self.add_extra_paths(extra_count=self.extra_paths)
+        self.fixed_maze = self.play_ground.copy()
+        self.player_location = (1, 1)
+        self.current_step = 0
+        self.prev_distance = self._manhattan_distance(
+            self.player_location, self.goal_location
+        )
+        self.episode_count = 0
+        self.reset_cycles += 1
+        return self.get_state()
+
+    def reset(self):
+        """Determine whether to perform a soft or hard reset based on episode count."""
+        if self.fixed_maze is None or self.reset_cycles >= self.max_cycles:
+            return self.hard_reset()
+        return self.soft_reset()
 
     def get_state(self):
         """Return the current state as a batched numpy array."""
