@@ -30,6 +30,7 @@ class Maze:
             2: (0, -1),  # left
             3: (0, 1),  # right
         }
+        self.action_names = {0: "Up", 1: "Down", 2: "Left", 3: "Right"}
         self.extra_paths = extra_paths
         self.fixed_maze_episodes = fixed_maze_episodes
         self.episode_count = 0
@@ -44,8 +45,10 @@ class Maze:
             self.player_location, self.goal_location
         )
 
+        # Always generate a new maze if fixed_maze is None or not reusing
         if (
-            self.fixed_maze_episodes == 0
+            self.fixed_maze is None
+            or self.fixed_maze_episodes == 0
             or self.episode_count % self.fixed_maze_episodes != 0
         ):
             self.play_ground = {}
@@ -78,44 +81,41 @@ class Maze:
                 != ObjectsInGame.WALL
             ):
                 valid_actions.append(action)
-        return (
-            valid_actions if valid_actions else self.actions
-        )  # Fallback to all actions if none valid
+        return valid_actions if valid_actions else self.actions
+
+    def get_action_name(self, action):
+        """Return the name of the action."""
+        return self.action_names.get(action, "Unknown")
 
     def step(self, action):
         """Take an action and return (next_state, reward, done, info)."""
         self.current_step += 1
         dx, dy = self.action_map[action]
         new_x, new_y = self.player_location[0] + dx, self.player_location[1] + dy
-        reward = -1  # Default step penalty
+        reward = -1
         done = False
         info = {}
 
-        # Check if the move is valid
         if 0 < new_x < self.wall_range and 0 < new_y < self.wall_range:
             if (
                 self.play_ground.get((new_x, new_y), ObjectsInGame.WALL)
                 != ObjectsInGame.WALL
             ):
-                self.player_location = (new_x, new_y)  # Update player position
+                self.player_location = (new_x, new_y)
                 if self.play_ground[(new_x, new_y)] == ObjectsInGame.GOAL:
-                    reward = 10  # Reward for reaching the goal
+                    reward = 10
                     done = True
                 else:
-                    # Shaping reward based on Manhattan distance reduction
                     curr_distance = self._manhattan_distance(
                         self.player_location, self.goal_location
                     )
-                    reward += (
-                        self.prev_distance - curr_distance
-                    ) * 0.5  # Bonus for getting closer
+                    reward += (self.prev_distance - curr_distance) * 0.5
                     self.prev_distance = curr_distance
             else:
-                reward = -5  # Penalty for hitting a wall
+                reward = -5
         else:
-            reward = -5  # Penalty for hitting the boundary
+            reward = -5
 
-        # Check if episode is done due to max steps
         if self.current_step >= self.max_steps:
             done = True
 
@@ -127,12 +127,24 @@ class Maze:
         return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
     def generate_playGround(self):
-        """Generate the maze layout."""
+        """Generate the maze layout with single-layer walls."""
         for row in range(self.play_ground_size):
             for col in range(self.play_ground_size):
+                # Set all positions to WALL
                 self.play_ground[(row, col)] = ObjectsInGame.WALL
+        # Carve the path starting from player location
         self._carve_the_path(self.player_location[0], self.player_location[1])
         self.play_ground[self.goal_location] = ObjectsInGame.GOAL
+        # Ensure outer edges remain walls (single layer)
+        for i in range(self.play_ground_size):
+            self.play_ground[(0, i)] = ObjectsInGame.WALL  # Top wall
+            self.play_ground[(i, 0)] = ObjectsInGame.WALL  # Left wall
+            self.play_ground[(self.play_ground_size - 1, i)] = (
+                ObjectsInGame.WALL
+            )  # Bottom wall
+            self.play_ground[(i, self.play_ground_size - 1)] = (
+                ObjectsInGame.WALL
+            )  # Right wall
 
     def generate_playGround_pattern(self):
         """Generate a visual representation of the maze."""
@@ -179,7 +191,7 @@ class Maze:
         while added < extra_count and attempts < extra_count * 5:
             x = random.randint(1, self.wall_range - 1)
             y = random.randint(1, self.wall_range - 1)
-            if x % 2 == 1 or y % 2 == 1:  # Only consider wall positions
+            if x % 2 == 1 or y % 2 == 1:
                 neighbors = [
                     ((x - 1, y), (x + 1, y)),
                     ((x, y - 1), (x, y + 1)),

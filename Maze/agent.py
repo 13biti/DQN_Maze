@@ -3,6 +3,8 @@ from tensorflow import keras
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 import random
+from tensorflow.keras.layers import Dense, Input
+from collections import deque
 
 
 class General_DQN_Agent:
@@ -26,7 +28,8 @@ class General_DQN_Agent:
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.batch_size = batch_size
-        self.buffer_mem = []
+        # suggested by ai , seems its have O(1) pop timecomplexity
+        self.buffer_mem = deque(maxlen=buffer_size)
         self.model = self._initiate_model()
         self.model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
         self.buffer_size = buffer_size
@@ -34,15 +37,14 @@ class General_DQN_Agent:
     def _initiate_model(self):
         return keras.Sequential(
             [
-                Dense(units=24, input_dim=self.state_size, activation="relu"),
+                Input(shape=(self.state_size,)),
+                Dense(units=24, activation="relu"),
                 Dense(units=24, activation="relu"),
                 Dense(units=self.action_size, activation="linear"),
             ]
         )
 
-    def store_exprience(self, current_state, next_state, imm_reward, action, done):
-        if len(self.buffer_mem) > self.buffer_size:
-            self.buffer_mem.pop(0)
+    def store_experience(self, current_state, next_state, imm_reward, action, done):
         self.buffer_mem.append(
             {
                 "current_state": current_state,
@@ -84,7 +86,7 @@ class General_DQN_Agent:
 
     def compute_action(self, current_state):
         if np.random.uniform(0, 1) < self.epsilon:
-            return np.random.choice(range(self.action_size))
+            return np.random.choice(self.action_size)
         else:
-            q_value = self.model.predict(current_state)[0]
+            q_value = self.model.predict(current_state, verbose=0)[0]
             return np.argmax(q_value)
