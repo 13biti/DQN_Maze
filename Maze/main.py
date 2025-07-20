@@ -5,7 +5,7 @@ import time
 
 
 def main():
-    game_size = 4
+    game_size = 8
     max_frame = 0
     extra_paths = 10
     episodes = 1000
@@ -21,8 +21,8 @@ def main():
         learning_rate=0.001,
         gamma=0.99,
         epsilon=1.0,
-        epsilon_min=0.01,
-        epsilon_decay=0.995,
+        epsilon_min=0.05,
+        epsilon_decay=0.9995,
         batch_size=32,
         buffer_size=2000,
     )

@@ -73,12 +73,24 @@ class General_DQN_Agent:
             else:
                 q_targets[i, actions[i]] = rewards[i]
         history = self.model.fit(states, q_targets, epochs=1, verbose=0)
-        # we learnd that agent should balance between exploration and exploitation
-        # without this section , it seems that agent just try to explor the new pathes
+        loss = history.history["loss"][0]
+        # need for more knowledge for this method
+        # self.updateEpsilon_BaseOnLoss(loss)
+        self.updateEpsilon_Nonlinear()
+        return loss
 
+    # we learnd that agent should balance between exploration and exploitation
+    # without this section , it seems that agent just try to explor the new pathes
+    #
+    def updateEpsilon_Nonlinear(self):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
-        return history.history["loss"][0]
+
+    def updateEpsilon_BaseOnLoss(self, loss):
+        if loss < 0.1:
+            self.epsilon = 0.1
+        else:
+            self.epsilon -= 0.05
 
     def compute_action(self, current_state):
         if np.random.uniform(0, 1) < self.epsilon:
