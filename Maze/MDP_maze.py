@@ -34,7 +34,9 @@ class maze:
         self.huristic = 0
         self.step_counter = 0
         # 0 for hiting the wall , 0.1 for space and 1 for goal
-        self.reward_map = {0: 0, 1: 0.1, 2: 1}
+        # update : reward should converge to 1 , like max reward shuld be 1 , if chosing space have reward , then model try to find longest path!!!
+        #
+        self.reward_map = {0: -0.1, 1: -0.05, 2: 1}
         self.generate_playGround()
 
     # ----------------------------------
@@ -203,19 +205,17 @@ class maze:
         dy, dx = directions[0]
         position = self.player_location[0] + dy, self.player_location[1] + dx
         if (
-            self.play_ground_size < position[0]
+            position[0] >= self.play_ground_size
             or position[0] < 0
-            or self.play_ground_size < position[1]
+            or position[1] >= self.play_ground_size
             or position[1] < 0
         ):
-            isSuccess, info, reward, next_state, game_done = (
-                True,
-                "hit the wall ",
-                self.reward_map.get(ObjectsInGame.WALL.value),
-                self.get_state(),
-                False,
-            )
-
+            isSuccess = True
+            info = "hit the boundary"
+            reward = self.reward_map.get(ObjectsInGame.WALL.value)
+            next_state = self.get_state()
+            game_done = False
+            return isSuccess, info, reward, next_state, game_done
         elif self.play_ground[position] == ObjectsInGame.WALL:
             isSuccess, info, reward, next_state, game_done = (
                 True,
