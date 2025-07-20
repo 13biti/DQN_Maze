@@ -187,6 +187,7 @@ class maze:
         discriptions = []
         for action in self.action_map.values():
             discriptions.append(action[1])
+        return discriptions
 
     def act(self, action: int):
         self.step_counter += 1
@@ -201,7 +202,21 @@ class maze:
         directions = self.action_map.get(action, [(0, 0)])
         dy, dx = directions[0]
         position = self.player_location[0] + dy, self.player_location[1] + dx
-        if self.play_ground[position] == ObjectsInGame.WALL:
+        if (
+            self.play_ground_size < position[0]
+            or position[0] < 0
+            or self.play_ground_size < position[1]
+            or position[1] < 0
+        ):
+            isSuccess, info, reward, next_state, game_done = (
+                True,
+                "hit the wall ",
+                self.reward_map.get(ObjectsInGame.WALL.value),
+                self.get_state(),
+                False,
+            )
+
+        elif self.play_ground[position] == ObjectsInGame.WALL:
             isSuccess, info, reward, next_state, game_done = (
                 True,
                 "hit the wall ",
