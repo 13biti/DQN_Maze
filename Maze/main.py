@@ -5,10 +5,10 @@ import time
 
 
 def main():
-    game_size = 8
+    game_size = 4
     max_frame = 0
     extra_paths = 10
-    episodes = 1000
+    episodes = 10
     max_steps = 100
     render = False
 
@@ -20,8 +20,8 @@ def main():
         state_size=state_size,
         learning_rate=0.001,
         gamma=0.99,
-        epsilon=1.0,
-        epsilon_min=0.05,
+        epsilon=0.1,
+        epsilon_min=0.005,
         epsilon_decay=0.9995,
         batch_size=32,
         buffer_size=2000,
@@ -53,6 +53,7 @@ def main():
         print(
             f"Episode {episode + 1}/{episodes}, Total Reward: {total_reward:.2f}, "
             f"Steps: {steps}, Epsilon: {agent.epsilon:.3f}, "
+            f"loss : {loss} "
             f"{'Goal Reached' if done else 'Not Reached'}"
         )
 
