@@ -35,6 +35,7 @@ class maze:
         self.step_counter = 0
         # 0 for hiting the wall , 0.1 for space and 1 for goal
         self.reward_map = {0: 0, 1: 0.1, 2: 1}
+        self.generate_playGround()
 
     # ----------------------------------
     # map generation codes :
@@ -48,6 +49,11 @@ class maze:
 
         self._carve_the_path(self.player_location[0], self.player_location[1])
         self.play_ground[self.goal_location] = ObjectsInGame.GOAL
+        if self.extra_paths > 0:
+            self.add_extra_paths(self.extra_paths)
+
+    def get_playGround(self):
+        return self.play_ground
 
     def generate_visual_pattern(self):
         pattern = []
@@ -70,9 +76,7 @@ class maze:
         return pattern
 
     def generate_playGround_from_pattern(self, pattern):
-        pattern = []
         for row in range(self.play_ground_size):
-            pattern_row = []
             for col in range(self.play_ground_size):
                 pos = (row, col)
                 if pos in self.play_ground and pattern[row][col] == "#":
@@ -83,8 +87,7 @@ class maze:
                     self.play_ground[pos] = ObjectsInGame.SPACE
                 else:
                     self.play_ground[pos] = ObjectsInGame.SPACE
-            pattern.append(pattern_row)
-        return pattern
+        return self.play_ground
 
     # ----------------------------------
     # creating a path to goal  :
