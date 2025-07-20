@@ -4,6 +4,7 @@ from enum import Enum
 from getkey import getkey
 import numpy as np
 
+
 keys = ["w", "s", "a", "d"]
 
 
@@ -35,8 +36,14 @@ class maze:
         self.step_counter = 0
         # 0 for hiting the wall , 0.1 for space and 1 for goal
         # update : reward should converge to 1 , like max reward shuld be 1 , if chosing space have reward , then model try to find longest path!!!
+        # update 2 : -0.05 Negative reward makes the model afraid to move. And if the epsilon grade policy is removed, the model may be in a loop.
+        # update 3 : This is a well-known problem:
+        #   In problems like this where the reward obtained at the end of an episode(here in goal);
+        #   by reducing exploration it is possible to arrive at a local optimum,
+        #   and by increasing exploration it is possible to overfit or to make a wrong search .
         #
-        self.reward_map = {0: -0.1, 1: -0.05, 2: 1}
+        #
+        self.reward_map = {0: -0.1, 1: 0, 2: 1}
         self.generate_playGround()
 
     # ----------------------------------
