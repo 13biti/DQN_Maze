@@ -42,18 +42,14 @@ def main():
         buffer_size=buffer_size,
     )
 
-    # Training parameters
     num_episodes = 1000
     max_steps_per_episode = max_steps
-    render_frequency = 10  # Reduced to show more frequent updates
+    render_frequency = 10
 
-    # Lists to store metrics for plotting
     rewards = []
     epsilons = []
-    losses = []  # Track loss
-    action_counts = np.zeros(action_size)  # Track action distribution
-
-    # Training loop
+    losses = []
+    action_counts = np.zeros(action_size)
     for episode in range(num_episodes):
         state = env.reset()
         total_reward = 0

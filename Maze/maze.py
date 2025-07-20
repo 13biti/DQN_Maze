@@ -2,6 +2,7 @@ import os
 import random
 from enum import Enum
 from getkey import getkey
+import numpy as np
 
 keys = ["w", "s", "a", "d"]
 
@@ -13,13 +14,16 @@ class objects_in_game(Enum):
 
 
 class maze:
-    def __init__(self, game_size) -> None:
+    def __init__(self, game_size, max_frame) -> None:
         # game_size + walls
         self.play_ground_size = game_size + 1
         self.player_location = (1, 1)
         self.goal_location = (game_size - 1, game_size - 1)
         self.play_ground = {}
         self.wall_range = self.play_ground_size - 1
+        self.extra_paths = 0
+        # this should use carefully , it may not allow user to have minimum moves
+        self.max_frame = max_frame
 
     def generate_playGround(self):
         for row in range(self.play_ground_size):
@@ -68,6 +72,7 @@ class maze:
                     self._carve_the_path(nx, ny)
 
     def add_extra_paths(self, extra_count=10):
+        self.extra_paths = extra_count
         attempts = 0
         added = 0
 
@@ -111,6 +116,38 @@ class maze:
                     else False
                 )
         return False
+
+    def soft_reset(self):
+        self.player_location = (1, 1)
+        self.current_step = 0
+        self.prev_distance = self._manhattan_distance(
+            self.player_location, self.goal_location
+        )
+        return self.get_state()
+
+    def hard_reset(self):
+        self.play_ground = {}
+        self.generate_playGround()
+        self.add_extra_paths(extra_count=self.extra_paths)
+        self.player_location = (1, 1)
+        self.current_step = 0
+        self.prev_distance = self._manhattan_distance(
+            self.player_location, self.goal_location
+        )
+        self.episode_count = 0
+        self.reset_cycles += 1
+        return self.get_state()
+
+    def reset(self):
+        if self.max_tryes <= self.tryes:
+            return self.hard_reset()
+        return self.soft_reset()
+
+    def get_state(self):
+        return np.array([self.player_location], dtype=np.float32)  # Shape: (1, 2)
+
+    def _manhattan_distance(self, pos1, pos2):
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
 
 game = maze(10)

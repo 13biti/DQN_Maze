@@ -41,7 +41,6 @@ class Maze:
         self.max_cycles = 5  # Number of cycles (n * 100 episodes) before hard reset
 
     def soft_reset(self):
-        """Reset the environment to the initial state while keeping the same maze."""
         self.player_location = (1, 1)
         self.current_step = 0
         self.prev_distance = self._manhattan_distance(
@@ -50,7 +49,6 @@ class Maze:
         return self.get_state()
 
     def hard_reset(self):
-        """Regenerate a new maze and reset the environment."""
         self.play_ground = {}
         self.generate_playGround()
         self.add_extra_paths(extra_count=self.extra_paths)
@@ -65,13 +63,11 @@ class Maze:
         return self.get_state()
 
     def reset(self):
-        """Determine whether to perform a soft or hard reset based on episode count."""
         if self.fixed_maze is None or self.reset_cycles >= self.max_cycles:
             return self.hard_reset()
         return self.soft_reset()
 
     def get_state(self):
-        """Return the current state as a batched numpy array."""
         return np.array([self.player_location], dtype=np.float32)  # Shape: (1, 2)
 
     def get_actions(self, only_valid=False):
@@ -131,7 +127,6 @@ class Maze:
         return next_state, reward, done, info
 
     def _manhattan_distance(self, pos1, pos2):
-        """Calculate Manhattan distance between two positions."""
         return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
     def generate_playGround(self):

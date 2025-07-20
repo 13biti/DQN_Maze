@@ -56,33 +56,26 @@ class General_DQN_Agent:
         )
 
     def train(self):
-        # if there is not enough state in buffer then :
         if len(self.buffer_mem) < self.batch_size:
-            return
-
+            return None
         batch = random.sample(self.buffer_mem, self.batch_size)
         states = np.vstack([item["current_state"] for item in batch])
         next_states = np.vstack([item["next_state"] for item in batch])
         rewards = np.array([item["reward"] for item in batch])
         actions = np.array([item["action"] for item in batch])
         dones = np.array([item["done"] for item in batch])
-
-        # this Q(s,a)
         q_current = self.model.predict(states, verbose=0)
         q_next = self.model.predict(next_states, verbose=0)
         q_targets = q_current.copy()
         for i in range(self.batch_size):
             if not dones[i]:
-                # r + gamma*argmax(Q(s',a))
                 q_targets[i, actions[i]] = rewards[i] + self.gamma * np.max(q_next[i])
             else:
                 q_targets[i, actions[i]] = rewards[i]
-        # trian the model
-        self.model.fit(states, q_targets, epochs=1, verbose=0)
-        """ this part is not complited yet 
+        history = self.model.fit(states, q_targets, epochs=1, verbose=0)
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
-            """
+        return history.history["loss"][0]
 
     def compute_action(self, current_state):
         if np.random.uniform(0, 1) < self.epsilon:
