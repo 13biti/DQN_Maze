@@ -6,6 +6,8 @@ import random
 from tensorflow.keras.layers import Dense, Input
 from collections import deque
 
+INFINIT = float("inf")
+
 
 class General_DQN_Agent:
     def __init__(
@@ -76,21 +78,21 @@ class General_DQN_Agent:
         loss = history.history["loss"][0]
         # need for more knowledge for this method
         # self.updateEpsilon_BaseOnLoss(loss)
-        self.updateEpsilon_Nonlinear()
+
+        ????self.updateEpsilon_Nonlinear()
         return loss
 
     # we learnd that agent should balance between exploration and exploitation
-    # without this section , it seems that agent just try to explor the new pathes
+    # without this section , it seems that agent just try to explor new path
     #
-    def updateEpsilon_Nonlinear(self):
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
 
+    """ i dont think updateEpsilon_BaseOnLoss is going to work , loss may have good value , but it not mean god job hase ben done by the model !!!
     def updateEpsilon_BaseOnLoss(self, loss):
         if loss < 0.1:
             self.epsilon = 0.1
         else:
             self.epsilon -= 0.05
+    """
 
     def compute_action(self, current_state):
         if np.random.uniform(0, 1) < self.epsilon:
@@ -98,3 +100,43 @@ class General_DQN_Agent:
         else:
             q_value = self.model.predict(current_state, verbose=0)[0]
             return np.argmax(q_value)
+
+
+
+class EpsilonPolicy:
+    def __init__(
+        self,
+        epsilon: float = 1.0,
+        epsilon_min: float = 0.01,
+        epsilon_decay: float = 0.995,
+    ):
+        self.visited_lsit = {}
+        self.epsilon = epsilon
+        self.epsilon_min = epsilon_min
+        self.epsilon_decay = epsilon_decay
+        self.old_huristic = INFINIT
+
+    def updateEpsilon_Nonlinear(self):
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+
+    # this method is not complited,  for now , it only store visited states ,
+    # and give extera bonus for the states that are not visited yet , this way , model will encoraged to learn more about new enviroment
+    # i wish i can use it to improve rewards , but it need lots of changes , and also reward is not the problem 
+    def updateEpsilon_EMR(self, state, useHuristic: bool = False, huristic=0.0):
+        exploration_bonus = 0.01 if state not in self.visited_lsit.keys() else 0
+        self.visited_lsit[state] = huristic
+        if useHuristic:
+            exploration_bonus += self._compute_progress(huristic)
+        
+        return exploration_bonus
+
+    # i know , its only work for (self.old_huristic - huristic) > 0
+    def _compute_progress(self, huristic):
+        result = (
+            0.01
+            if self.old_huristic != INFINIT and (self.old_huristic - huristic) > 0
+            else 0.0
+        )
+        self.old_huristic = huristic
+        return result
