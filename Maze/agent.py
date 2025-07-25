@@ -95,6 +95,7 @@ class General_DQN_Agent:
         rewards = np.array([item["reward"] for item in batch])
         actions = np.array([item["action"] for item in batch])
         dones = np.array([item["done"] for item in batch])
+        heuristics = np.array([item["heuristic"] for item in batch])
         q_current = self.model.predict(states, verbose=0)
         q_next = self.model.predict(next_states, verbose=0)
         q_targets = q_current.copy()
@@ -103,9 +104,20 @@ class General_DQN_Agent:
                 q_targets[i, actions[i]] = rewards[i] + self.gamma * np.max(q_next[i])
             else:
                 q_targets[i, actions[i]] = rewards[i]
+        self._handel_epsilon(states=states, heuristics=heuristics, max_episodes=50)
         history = self.model.fit(states, q_targets, epochs=1, verbose=0)
         loss = history.history["loss"][0]
         return loss
+
+    # this method ment to handel epsilon update !
+    def _handel_epsilon(self, states, heuristics, max_episodes):
+        epsilon_values = []
+        for i in range(self.batch_size):
+            epsilon = self.epsilon_policy.updateEpsilon(
+                self.epsilon, states[i], heuristics[i]
+            )
+            epsilon_values.append(epsilon)
+        self.epsilon = np.mean(epsilon_values) if epsilon_values else self.epsilon
 
     def compute_action(self, current_state):
         if np.random.uniform(0, 1) < self.epsilon:
