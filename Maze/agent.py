@@ -1,10 +1,16 @@
 import numpy as np
 from tensorflow import keras
-from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 import random
 from tensorflow.keras.layers import Dense, Input
 from collections import deque
+from enum import Enum
+
+
+class EpsilonPolicyType(Enum):
+    DECAY = 0
+    ERM = 1
+
 
 INFINIT = float("inf")
 
@@ -22,6 +28,8 @@ class General_DQN_Agent:
         epsilon_min=0.01,
         epsilon_decay=0.995,
         epsilon_policy=None,
+        progress_bonus: float = 0.05,
+        exploration_bonus: float = 0.1,
     ) -> None:
         self.action_size = action_size
         self.state_size = state_size
@@ -35,9 +43,15 @@ class General_DQN_Agent:
         self.model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
         self.buffer_size = buffer_size
         self.epsilon_policy = (
-            EpsilonPolicy("None", self.epsilon, epsilon_min, epsilon_decay)
-            if epsilon_policy is None
-            else epsilon_policy
+            epsilon_policy
+            if epsilon_policy is not None
+            else EpsilonPolicy(
+                epsilon_min=epsilon_min,
+                epsilon_decay=epsilon_decay,
+                progress_bonus=progress_bonus,
+                exploration_bonus=exploration_bonus,
+                policy=EpsilonPolicyType.ERM,
+            )
         )
 
     def _initiate_model(self):
@@ -50,6 +64,9 @@ class General_DQN_Agent:
             ]
         )
 
+    # decide to update epsilon
+    # in past , epsilon got updated while model train , which not make sence case it assumed that model always progress in good way , like it always work
+    # it may not , so reducing epsilon each time in train is wrong , i think
     def store_experience(
         self, current_state, next_state, imm_reward, action, done, heuristic=0
     ):
@@ -63,9 +80,13 @@ class General_DQN_Agent:
                 "done": done,
             }
         )
+        self.epsilon = self.epsilon_policy.updateEpsilon(
+            self.epsilon, current_state, heuristic
+        )
 
     def train(self):
         if len(self.buffer_mem) < self.batch_size:
+            print("low buffer sizze")
             return None
         batch = random.sample(self.buffer_mem, self.batch_size)
         states = np.vstack([item["current_state"] for item in batch])
@@ -99,24 +120,26 @@ class General_DQN_Agent:
 class EpsilonPolicy:
     def __init__(
         self,
-        policy="None",
-        epsilon: float = 1.0,
         epsilon_min: float = 0.01,
         epsilon_decay: float = 0.995,
         progress_bonus: float = 0.05,
         exploration_bonus: float = 0.1,
+        policy: EpsilonPolicyType = EpsilonPolicyType.DECAY,
     ):
         self.policy = policy
         self.visited_states = {}
-        self.epsilon = epsilon
+        self.epsilon = 0
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.old_huristic = INFINIT
         self.progress_bonus = progress_bonus
         self.exploration_bonus = exploration_bonus
+        self.episode_count = 0
 
-    def updateEpsilon(self, state=None, heuristic=None):
-        if self.policy.lower() == "erm":
+    def updateEpsilon(self, epsilon, state=None, heuristic=None):
+        self.epsilon = epsilon
+        self.episode_count += 1
+        if self.policy == EpsilonPolicyType.ERM:
             return self.updateEpsilon_EMR(state, heuristic)
         else:
             return self.updateEpsilon_Nonlinear()
@@ -124,22 +147,38 @@ class EpsilonPolicy:
     def updateEpsilon_Nonlinear(self):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+        # Linear fallback for convergence
+        max_episodes = 50
+        linear_epsilon = max(
+            self.epsilon_min,
+            1.0 - (1.0 - self.epsilon_min) * (self.episode_count / max_episodes),
+        )
+        self.epsilon = min(self.epsilon, linear_epsilon)
         return self.epsilon
 
     # this method is not complited,  for now , it only store visited states ,
     # and give extera bonus for the states that are not visited yet , this way , model will encoraged to learn more about new enviroment
     # i wish i can use it to improve rewards , but it need lots of changes , and also reward is not the problem
     def updateEpsilon_EMR(self, state, heuristic=None):
-        is_new_state = state not in self.visited_states
+        # this part cassing the problem , update it with tuppels
+        # is_new_state = state not in self.visited_states
+        state_key = tuple(state.flatten()) if state is not None else None
+        is_new_state = state_key is not None and state_key not in self.visited_states
         if is_new_state:
-            self.visited_states[state] = heuristic if heuristic is not None else 0
+            if is_new_state and state_key is not None:
+                self.visited_states[state_key] = (
+                    heuristic if heuristic is not None else INFINIT
+                )
 
         progress = 0.0
-        if heuristic is not None:
-            old_heuristic = self.visited_states[state]
-            if heuristic > old_heuristic:  # assuming higher heuristic = better
+        # make mistake in here , lower heuristic in maze is better
+        if heuristic is not None and state_key is not None:
+            old_heuristic = self.visited_states[state_key]
+            if (
+                old_heuristic != INFINIT and heuristic < old_heuristic
+            ):  # lower heuristic = progress
                 progress = self.progress_bonus
-                self.visited_states[state] = heuristic  # Update best heuristic
+                self.visited_states[state_key] = heuristic
 
         if self.epsilon > self.epsilon_min:
             decay_factor = self.epsilon_decay

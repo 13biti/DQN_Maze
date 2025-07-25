@@ -198,6 +198,7 @@ class maze:
             discriptions.append(action[1])
         return discriptions
 
+    # internet blackout , fix this in future :-> bool, str, int, int, np.array, bool :
     def act(self, action: int):
         self.step_counter += 1
         isSuccess = False
@@ -205,8 +206,16 @@ class maze:
         reward = 0
         next_state = 0
         game_done = False
+        huristic = 0
         if action not in self.actions:
-            return isSuccess, "action is out of range , ", reward, next_state, game_done
+            return (
+                isSuccess,
+                "action is out of range , ",
+                reward,
+                huristic,
+                next_state,
+                game_done,
+            )
 
         directions = self.action_map.get(action, [(0, 0)])
         dy, dx = directions[0]
@@ -220,35 +229,39 @@ class maze:
             isSuccess = True
             info = "hit the boundary"
             reward = self.reward_map.get(ObjectsInGame.WALL.value)
+            huristic = self._manhattan_distance(position, self.goal_location)
             next_state = self.get_state()
             game_done = False
-            return isSuccess, info, reward, next_state, game_done
+            return isSuccess, info, reward, huristic, next_state, game_done
         elif self.play_ground[position] == ObjectsInGame.WALL:
-            isSuccess, info, reward, next_state, game_done = (
+            isSuccess, info, reward, huristic, next_state, game_done = (
                 True,
                 "hit the wall ",
                 self.reward_map.get(ObjectsInGame.WALL.value),
+                self._manhattan_distance(position, self.goal_location),
                 self.get_state(),
                 False,
             )
             self.player_location = position
 
         elif self.play_ground[position] == ObjectsInGame.SPACE:
-            isSuccess, info, reward, next_state, game_done = (
+            isSuccess, info, reward, huristic, next_state, game_done = (
                 True,
                 "ok",
                 self.reward_map.get(ObjectsInGame.SPACE.value),
+                self._manhattan_distance(position, self.goal_location),
                 self.get_state(),
                 False,
             )
             self.player_location = position
         else:
-            isSuccess, info, reward, next_state, game_done = (
+            isSuccess, info, reward, huristic, next_state, game_done = (
                 True,
                 "you win",
                 self.reward_map.get(ObjectsInGame.GOAL.value),
+                0,
                 self.get_state(),
                 True,
             )
             self.player_location = position
-        return isSuccess, info, reward, next_state, game_done
+        return isSuccess, info, reward, huristic, next_state, game_done

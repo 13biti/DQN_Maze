@@ -1,5 +1,5 @@
 import numpy as np
-from agent import General_DQN_Agent
+from agent import EpsilonPolicyType, General_DQN_Agent, EpsilonPolicy
 from MDP_maze import maze
 import time
 
@@ -14,17 +14,27 @@ def main():
 
     game = maze(game_size=game_size, max_frame=max_frame, extra_paths=extra_paths)
     state_size = 2
+    epsilon_min = 0.005
+    epsilon_decay = 0.9995
     action_size = len(game.get_actions())
+    ep_policy = EpsilonPolicy(
+        epsilon_min,
+        epsilon_decay,
+        progress_bonus=0.05,
+        exploration_bonus=0.1,
+        policy=EpsilonPolicyType.ERM,
+    )
     agent = General_DQN_Agent(
         action_size=action_size,
         state_size=state_size,
         learning_rate=0.001,
         gamma=0.99,
-        epsilon=0.1,
-        epsilon_min=0.005,
-        epsilon_decay=0.9995,
-        batch_size=32,
-        buffer_size=2000,
+        epsilon=1.0,
+        batch_size=8,
+        buffer_size=100,
+        epsilon_min=epsilon_min,
+        epsilon_decay=epsilon_decay,
+        epsilon_policy=ep_policy,
     )
 
     game.print_maze(game.generate_visual_pattern())
@@ -37,9 +47,9 @@ def main():
         while not done and steps < max_steps:
             action = agent.compute_action(state)
 
-            is_success, info, reward, next_state, done = game.act(action)
+            is_success, info, reward, huristic, next_state, done = game.act(action)
 
-            agent.store_experience(state, next_state, reward, action, done)
+            agent.store_experience(state, next_state, reward, action, done, huristic)
 
             loss = agent.train()
             state = next_state
@@ -65,7 +75,7 @@ def main():
     game.print_maze(game.generate_visual_pattern())
     while not done and steps < max_steps:
         action = agent.compute_action(state)
-        is_success, info, reward, next_state, done = game.act(action)
+        is_success, info, reward, huristic, next_state, done = game.act(action)
         state = next_state
         total_reward += reward
         steps += 1
