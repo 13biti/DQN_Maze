@@ -32,6 +32,7 @@ class General_DQN_Agent:
         exploration_bonus: float = 0.1,
     ) -> None:
         self.action_size = action_size
+        self.epsilon = 1
         self.state_size = state_size
         self.lr = learning_rate
         self.gamma = gamma
@@ -87,7 +88,6 @@ class General_DQN_Agent:
 
     def train(self):
         if len(self.buffer_mem) < self.batch_size:
-            print("low buffer sizze")
             return None
         batch = random.sample(self.buffer_mem, self.batch_size)
         states = np.vstack([item["current_state"] for item in batch])
@@ -110,6 +110,8 @@ class General_DQN_Agent:
         return loss
 
     # this method ment to handel epsilon update !
+    # update1 : still have jumps for that ,i try to smoting the epsilon balance ,
+    # this is the main idea e = max(epsilon_min , 1-((1-epsilon_min)/max_episodes).episode_count)
     def _handel_epsilon(self, states, heuristics, max_episodes):
         epsilon_values = []
         for i in range(self.batch_size):
@@ -134,14 +136,14 @@ class EpsilonPolicy:
     def __init__(
         self,
         epsilon_min: float = 0.01,
-        epsilon_decay: float = 0.995,
+        epsilon_decay: float = 0.999,
         progress_bonus: float = 0.05,
         exploration_bonus: float = 0.1,
         policy: EpsilonPolicyType = EpsilonPolicyType.DECAY,
     ):
         self.policy = policy
         self.visited_states = {}
-        self.epsilon = 0
+        self.epsilon: float = INFINIT
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.old_huristic = INFINIT
