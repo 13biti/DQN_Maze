@@ -64,9 +64,13 @@ class General_DQN_Agent:
             ]
         )
 
+    # update1 :
     # decide to update epsilon
     # in past , epsilon got updated while model train , which not make sence case it assumed that model always progress in good way , like it always work
     # it may not , so reducing epsilon each time in train is wrong , i think
+    # update2 :
+    # while model randomly shuffeling the states and use the as data , cannot update epsilon where that data may never feed into the model ,
+    # back this updating process into train again
     def store_experience(
         self, current_state, next_state, imm_reward, action, done, heuristic=0
     ):
@@ -79,9 +83,6 @@ class General_DQN_Agent:
                 "heuristic": heuristic,
                 "done": done,
             }
-        )
-        self.epsilon = self.epsilon_policy.updateEpsilon(
-            self.epsilon, current_state, heuristic
         )
 
     def train(self):
@@ -180,11 +181,12 @@ class EpsilonPolicy:
                 progress = self.progress_bonus
                 self.visited_states[state_key] = heuristic
 
-        if self.epsilon > self.epsilon_min:
+        new_epsilon = self.epsilon
+        if new_epsilon > self.epsilon_min:
             decay_factor = self.epsilon_decay
             if is_new_state:
-                decay_factor = min(1.0, decay_factor + self.exploration_bonus)
+                decay_factor = 0.995
             if progress > 0:
-                decay_factor = min(1.0, decay_factor + progress)
-            self.epsilon *= decay_factor
-        return self.epsilon
+                decay_factor = 0.99
+            new_epsilon *= decay_factor
+        return new_epsilon
