@@ -2,6 +2,36 @@ import numpy as np
 from agent import EpsilonPolicyType, General_DQN_Agent, EpsilonPolicy
 from MDP_maze import maze
 import time
+import pickle
+import os
+
+
+def save_maze_and_weights(game, agent, maze_filename, weights_filename):
+    maze_pattern = game.generate_visual_pattern()
+    maze_filename += ".weights.h5"
+    with open(maze_filename, "wb") as f:
+        pickle.dump(maze_pattern, f)
+    agent.model.save_weights(weights_filename)
+    print(f"saved maze pattern to {maze_filename} and weights to {weights_filename}")
+
+
+def load_maze_and_weights(game, agent, maze_filename, weights_filename):
+    if not (os.path.exists(maze_filename) and os.path.exists(weights_filename)):
+        print("one or both files not found. Creating new maze.")
+        return False
+
+    try:
+        with open(maze_filename, "rb") as f:
+            maze_pattern = pickle.load(f)
+        game.generate_playGround_from_pattern(maze_pattern)
+        agent.model.load_weights(weights_filename)
+        print(
+            f"loaded maze pattern from {maze_filename} and weights from {weights_filename}"
+        )
+        return True
+    except Exception as e:
+        print(f"error loading files: {e}")
+        return False
 
 
 def main():
