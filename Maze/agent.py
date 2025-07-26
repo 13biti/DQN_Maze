@@ -33,7 +33,9 @@ class General_DQN_Agent:
         epsilon=1.0,
         epsilon_min=0.01,
         epsilon_decay=0.995,
-        epsilon_policy=None,
+        epsilon_policy=EpsilonPolicyType.NONE,
+        reward_policy=RewardPolicyType.NONE,
+        lowerHuristicBetter=True,
         progress_bonus: float = 0.05,
         exploration_bonus: float = 0.1,
     ) -> None:
@@ -58,6 +60,8 @@ class General_DQN_Agent:
                 policy=EpsilonPolicyType.DECAY,
             )
         )
+        self.rewarding = RewardHelper(progress_bonus, exploration_bonus, reward_policy)
+        self.lowerHuristicBetter = lowerHuristicBetter
 
     def _initiate_model(self):
         return keras.Sequential(
@@ -79,6 +83,9 @@ class General_DQN_Agent:
     def store_experience(
         self, current_state, next_state, imm_reward, action, done, heuristic=0
     ):
+        imm_reward = self.rewarding.findReward(
+            current_state, imm_reward, heuristic, self.lowerHuristicBetter
+        )
         self.buffer_mem.append(
             {
                 "current_state": current_state,
@@ -171,7 +178,7 @@ class EpsilonPolicy:
         return self.epsilon
 
 
-def RewardHelper():
+class RewardHelper:
     def __init__(
         self,
         progress_bonus: float = 0.05,
@@ -182,17 +189,18 @@ def RewardHelper():
         self.exploration_bonus = progress_bonus
         self.policy = policy
         self.old_huristic = INFINIT
+        self.visited_states = {}
 
     def findReward(self, state, reward, heuristic=None, lowerHuristicBetter=True):
         if self.policy == RewardPolicyType.ERM:
-            return self.ERM(state, reward, heuristic, lowerHuristicBetter)
+            return self._ERM(state, reward, heuristic, lowerHuristicBetter)
         elif self.policy == RewardPolicyType.NONE:
-            return self.none(reward)
+            return self._none(reward)
 
-    def none(self, reward):
+    def _none(self, reward):
         return reward
 
-    def ERM(self, state, reward, heuristic=None, lowerHuristicBetter=True):
+    def _ERM(self, state, reward, heuristic=None, lowerHuristicBetter=True):
         state_key = tuple(state.flatten()) if state is not None else None
         is_new_state = state_key is not None and state_key not in self.visited_states
         if is_new_state:
