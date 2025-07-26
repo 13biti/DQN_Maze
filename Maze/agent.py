@@ -1,3 +1,4 @@
+import re
 import numpy as np
 from tensorflow import keras
 from tensorflow.keras.optimizers import Adam
@@ -8,11 +9,13 @@ from enum import Enum
 
 
 class EpsilonPolicyType(Enum):
-    DECAY = 0
+    NONE = 0
+    DECAY = 1
 
 
 class RewardPolicyType(Enum):
-    ERM = 0
+    NONE = 0
+    ERM = 1
 
 
 INFINIT = float("inf")
@@ -179,6 +182,15 @@ def RewardHelper():
         self.exploration_bonus = progress_bonus
         self.policy = policy
         self.old_huristic = INFINIT
+
+    def findReward(self, state, reward, heuristic=None, lowerHuristicBetter=True):
+        if self.policy == RewardPolicyType.ERM:
+            return self.ERM(state, reward, heuristic, lowerHuristicBetter)
+        elif self.policy == RewardPolicyType.NONE:
+            return self.none(reward)
+
+    def none(self, reward):
+        return reward
 
     def ERM(self, state, reward, heuristic=None, lowerHuristicBetter=True):
         state_key = tuple(state.flatten()) if state is not None else None
