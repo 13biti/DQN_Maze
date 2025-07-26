@@ -64,6 +64,31 @@ class Buffering:
         return states, next_states, rewards, actions, dones, heuristics
 
 
+class QNetwork:
+    def __init__(self, state_size, action_size, learning_rate=0.001) -> None:
+        self.state_size = state_size
+        self.action_size = action_size
+        self._model = self._initiate_model()
+        self._model.compile(loss="mse", optimizer=Adam(learning_rate=learning_rate))
+
+    def _initiate_model(self):
+        return keras.Sequential(
+            [
+                Input(shape=(self.state_size,)),
+                Dense(units=64, activation="relu"),
+                Dense(units=34, activation="relu"),
+                Dense(units=self.action_size, activation="linear"),
+            ]
+        )
+
+    def predict(self, states, verbose=0):
+        return self._model.predict(states, verbose=verbose)
+
+    def fit(self, states, q_targets, epochs=1, verbose=0):
+        history = self._model.fit(states, q_targets, epochs=epochs, verbose=verbose)
+        return history.history["loss"][0]
+
+
 class General_DQN_Agent:
     def __init__(
         self,
