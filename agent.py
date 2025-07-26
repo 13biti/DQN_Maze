@@ -19,28 +19,28 @@ class RewardPolicyType(Enum):
     ERM = 1
 
 
-INFINIT = float("inf")
+INFINITY = float("inf")
 
 
-class Buffering:
+class ExperienceBuffer:
     def __init__(
         self,
         rewarder: "RewardHelper",
         buffer_size=2000,
-        lowerHuristicBetter=True,
+        prefer_lower_heuristic=True,
     ) -> None:
-        self.buffer_mem = deque(maxlen=buffer_size)
+        self.memory_buffer = deque(maxlen=buffer_size)
         self.buffer_size = buffer_size
-        self.rewarding = rewarder
-        self.lowerHuristicBetter = lowerHuristicBetter
+        self.reward_helper = rewarder
+        self.prefer_lower_heuristic = prefer_lower_heuristic
 
     def store_experience(
         self, current_state, next_state, imm_reward, action, done, heuristic=0
     ):
-        imm_reward = self.rewarding.findReward(
-            current_state, imm_reward, heuristic, self.lowerHuristicBetter
+        imm_reward = self.reward_helper.findReward(
+            current_state, imm_reward, heuristic, self.prefer_lower_heuristic
         )
-        self.buffer_mem.append(
+        self.memory_buffer.append(
             {
                 "current_state": current_state,
                 "action": action,
@@ -51,10 +51,10 @@ class Buffering:
             }
         )
 
-    def BulkData(self, count):
-        if len(self.buffer_mem) < count:
+    def sample_batch(self, count):
+        if len(self.memory_buffer) < count:
             return None
-        batch = random.sample(self.buffer_mem, count)
+        batch = random.sample(self.memory_buffer, count)
         states = np.vstack([item["current_state"] for item in batch])
         next_states = np.vstack([item["next_state"] for item in batch])
         rewards = np.array([item["reward"] for item in batch])
@@ -102,13 +102,13 @@ class EpsilonPolicy:
     ):
         self.policy = policy
         self.visited_states = {}
-        self.epsilon: float = INFINIT
+        self.epsilon: float = INFINITY
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.update_per_episod = update_per_episod
         self.old_episod = 0
 
-    def updateEpsilon(
+    def adjust_epsilon(
         self,
         epsilon,
         episode_count,
@@ -121,19 +121,19 @@ class EpsilonPolicy:
             else:
                 self.old_episod = episode_count
         if self.policy == EpsilonPolicyType.DECAY:
-            return self.updateEpsilon_linear(episode_count, max_episodes)
+            return self.linear_decay(episode_count, max_episodes)
         elif self.policy == EpsilonPolicyType.SOFTLINEAR:
-            return self.updateEpsilon_SoftLinear(episode_count, max_episodes)
+            return self.soft_linear_decayr(episode_count, max_episodes)
         else:
             return self.epsilon
 
-    def updateEpsilon_linear(self, episode_count, max_episodes):
+    def linear_decay(self, episode_count, max_episodes):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
         self.epsilon = max(self.epsilon, self.epsilon_min)
         return self.epsilon
 
-    def updateEpsilon_SoftLinear(self, episode_count, max_episodes=200):
+    def soft_linear_decayr(self, episode_count, max_episodes=200):
         if self.epsilon > self.epsilon_min:
             target_epsilon = max(
                 self.epsilon_min,
@@ -155,7 +155,7 @@ class RewardHelper:
         self.progress_bonus = progress_bonus
         self.exploration_bonus = exploration_bonus
         self.policy = policy
-        self.old_huristic = INFINIT
+        self.old_huristic = INFINITY
         self.visited_states = {}
 
     def findReward(self, state, reward, heuristic=None, lowerHuristicBetter=True):
@@ -175,14 +175,14 @@ class RewardHelper:
         if is_new_state:
             if is_new_state and state_key is not None:
                 self.visited_states[state_key] = (
-                    heuristic if heuristic is not None else INFINIT
+                    heuristic if heuristic is not None else INFINITY
                 )
 
         progress = 0.0
         if heuristic is not None and state_key is not None:
             old_heuristic = self.visited_states[state_key]
             if (
-                old_heuristic != INFINIT
+                old_heuristic != INFINITY
                 and (heuristic < old_heuristic and lowerHuristicBetter)
                 or (heuristic > old_heuristic and not lowerHuristicBetter)
             ):
@@ -197,7 +197,7 @@ class RewardHelper:
         return new_reward
 
 
-class General_DQN_Agent:
+class DQNAgent:
     def __init__(
         self,
         action_size,
@@ -212,7 +212,7 @@ class General_DQN_Agent:
         epsilon_decay=0.995,
         epsilon_policy: EpsilonPolicy = None,
         reward_policy: RewardPolicyType = RewardPolicyType.NONE,
-        lowerHuristicBetter=True,
+        prefer_lower_heuristic=True,
         progress_bonus: float = 0.05,
         exploration_bonus: float = 0.1,
     ) -> None:
@@ -230,14 +230,14 @@ class General_DQN_Agent:
             epsilon_decay=epsilon_decay,
             policy=EpsilonPolicyType.DECAY,
         )
-        self.buffer_helper = Buffering(
+        self.buffer_helper = ExperienceBuffer(
             RewardHelper(progress_bonus, exploration_bonus, reward_policy),
             buffer_size=buffer_size,
-            lowerHuristicBetter=lowerHuristicBetter,
+            prefer_lower_heuristic=prefer_lower_heuristic,
         )
 
     def train(self, episode):
-        data = self.buffer_helper.BulkData(self.batch_size)
+        data = self.buffer_helper.sample_batch(self.batch_size)
         if data is None:
             return None
         states, next_states, rewards, actions, dones, heuristics = data
@@ -251,16 +251,16 @@ class General_DQN_Agent:
                 q_targets[i, actions[i]] = rewards[i]
             q_targets[i, actions[i]] = np.clip(q_targets[i, actions[i]], -10, 10)
 
-        self._handle_epsilon(episode_count=episode)
+        self._update_exploration_rate(episode_count=episode)
         loss = self.model.fit(states, q_targets, epochs=1, verbose=0)
         return loss
 
-    def _handle_epsilon(self, episode_count):
-        self.epsilon = self.epsilon_policy.updateEpsilon(
+    def _update_exploration_rate(self, episode_count):
+        self.epsilon = self.epsilon_policy.adjust_epsilon(
             self.epsilon, episode_count=episode_count, max_episodes=self.max_episodes
         )
 
-    def compute_action(self, current_state):
+    def select_action(self, current_state):
         if np.random.uniform(0, 1) < self.epsilon:
             return np.random.choice(self.action_size)
         else:
