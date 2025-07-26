@@ -1,3 +1,4 @@
+from os import stat
 import numpy as np
 from tensorflow import keras
 from tensorflow.keras.optimizers import Adam
@@ -21,68 +22,18 @@ class RewardPolicyType(Enum):
 INFINIT = float("inf")
 
 
-class General_DQN_Agent:
+class Buffering:
     def __init__(
         self,
-        action_size,
-        state_size,
-        learning_rate=0.001,
-        gamma=0.99,
-        batch_size=32,
+        rewarder: "RewardHelper",
         buffer_size=2000,
-        max_episodes=200,
-        epsilon=1.0,
-        epsilon_min=0.01,
-        epsilon_decay=0.995,
-        epsilon_policy=None,
-        reward_policy=RewardPolicyType.NONE,
         lowerHuristicBetter=True,
-        progress_bonus: float = 0.05,
-        exploration_bonus: float = 0.1,
     ) -> None:
-        self.action_size = action_size
-        self.epsilon = epsilon
-        self.state_size = state_size
-        self.lr = learning_rate
-        self.gamma = gamma
-        self.epsilon = epsilon
-        self.batch_size = batch_size
-        # suggested by ai , seems its have O(1) pop timecomplexity
         self.buffer_mem = deque(maxlen=buffer_size)
-        self.model = self._initiate_model()
-        self.model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
         self.buffer_size = buffer_size
-        self.epsilon_policy = (
-            epsilon_policy
-            if epsilon_policy is not None
-            else EpsilonPolicy(
-                epsilon_min=epsilon_min,
-                epsilon_decay=epsilon_decay,
-                policy=EpsilonPolicyType.DECAY,
-            )
-        )
-        self.rewarding = RewardHelper(progress_bonus, exploration_bonus, reward_policy)
+        self.rewarding = rewarder
         self.lowerHuristicBetter = lowerHuristicBetter
-        self.episode_count = 0
-        self.max_episodes = max_episodes
 
-    def _initiate_model(self):
-        return keras.Sequential(
-            [
-                Input(shape=(self.state_size,)),
-                Dense(units=64, activation="relu"),
-                Dense(units=34, activation="relu"),
-                Dense(units=self.action_size, activation="linear"),
-            ]
-        )
-
-    # update1 :
-    # decide to update epsilon
-    # in past , epsilon got updated while model train , which not make sence case it assumed that model always progress in good way , like it always work
-    # it may not , so reducing epsilon each time in train is wrong , i think
-    # update2 :
-    # while model randomly shuffeling the states and use the as data , cannot update epsilon where that data may never feed into the model ,
-    # back this updating process into train again
     def store_experience(
         self, current_state, next_state, imm_reward, action, done, heuristic=0
     ):
@@ -100,16 +51,68 @@ class General_DQN_Agent:
             }
         )
 
-    def train(self, episod):
-        if len(self.buffer_mem) < self.batch_size:
+    def BulkData(self, count):
+        if len(self.buffer_mem) < count:
             return None
-        batch = random.sample(self.buffer_mem, self.batch_size)
+        batch = random.sample(self.buffer_mem, count)
         states = np.vstack([item["current_state"] for item in batch])
         next_states = np.vstack([item["next_state"] for item in batch])
         rewards = np.array([item["reward"] for item in batch])
         actions = np.array([item["action"] for item in batch])
         dones = np.array([item["done"] for item in batch])
         heuristics = np.array([item["heuristic"] for item in batch])
+        return states, next_states, rewards, actions, dones, heuristics
+
+
+class General_DQN_Agent:
+    def __init__(
+        self,
+        action_size,
+        state_size,
+        learning_rate=0.001,
+        buffer_size=2000,
+        batch_size=32,
+        gamma=0.99,
+        max_episodes=200,
+        epsilon=1.0,
+        epsilon_min=0.01,
+        epsilon_decay=0.995,
+        epsilon_policy=None,
+        reward_policy=RewardPolicyType.NONE,
+        lowerHuristicBetter=True,
+        progress_bonus: float = 0.05,
+        exploration_bonus: float = 0.1,
+    ) -> None:
+        self.action_size = action_size
+        self.epsilon = epsilon
+        self.state_size = state_size
+        self.lr = learning_rate
+        self.gamma = gamma
+        self.buffer_helper = Buffering(
+            RewardHelper(progress_bonus, exploration_bonus, reward_policy),
+            buffer_size=buffer_size,
+            lowerHuristicBetter=lowerHuristicBetter,
+        )
+        self.batch_size = batch_size
+        self.epsilon = epsilon
+        self.model = GetModel()
+        self.model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
+        self.epsilon_policy = (
+            epsilon_policy
+            if epsilon_policy is not None
+            else EpsilonPolicy(
+                epsilon_min=epsilon_min,
+                epsilon_decay=epsilon_decay,
+                policy=EpsilonPolicyType.DECAY,
+            )
+        )
+        self.episode_count = 0
+        self.max_episodes = max_episodes
+
+    def train(self, episod):
+        states, next_states, rewards, actions, dones, heuristics = (
+            self.buffer_helper.BulkData(self.batch_size)
+        )
         q_current = self.model.predict(states, verbose=0)
         q_next = self.model.predict(next_states, verbose=0)
         q_targets = q_current.copy()
