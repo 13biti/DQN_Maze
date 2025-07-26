@@ -31,6 +31,7 @@ class General_DQN_Agent:
         gamma=0.99,
         batch_size=32,
         buffer_size=2000,
+        max_episodes=200,
         epsilon=1.0,
         epsilon_min=0.01,
         epsilon_decay=0.995,
@@ -64,6 +65,7 @@ class General_DQN_Agent:
         self.rewarding = RewardHelper(progress_bonus, exploration_bonus, reward_policy)
         self.lowerHuristicBetter = lowerHuristicBetter
         self.episode_count = 0
+        self.max_episodes = max_episodes
 
     def _initiate_model(self):
         return keras.Sequential(
@@ -118,9 +120,7 @@ class General_DQN_Agent:
             else:
                 q_targets[i, actions[i]] = rewards[i]
             q_targets[i, actions[i]] = np.clip(q_targets[i, actions[i]], -10, 10)
-        self.epsilon = self.epsilon_policy.updateEpsilon(
-            self.epsilon, max_episodes=200, episode_count=episod
-        )
+        self._handel_epsilon(episode_count=episod)
         history = self.model.fit(states, q_targets, epochs=1, verbose=0)
         loss = history.history["loss"][0]
         return loss
@@ -128,8 +128,10 @@ class General_DQN_Agent:
     # this method ment to handel epsilon update !
     # update1 : still have jumps for that ,i try to smoting the epsilon balance ,
     # this is the main idea e = max(epsilon_min , 1-((1-epsilon_min)/max_episodes).episode_count)
-    def _handel_epsilon(self, max_episodes, episode_count):
-        pass
+    def _handel_epsilon(self, episode_count):
+        self.epsilon = self.epsilon_policy.updateEpsilon(
+            self.epsilon, episode_count=episode_count, max_episodes=self.max_episodes
+        )
 
     def compute_action(self, current_state):
         if np.random.uniform(0, 1) < self.epsilon:
@@ -148,12 +150,15 @@ class EpsilonPolicy:
         epsilon_min: float = 0.01,
         epsilon_decay: float = 0.995,
         policy: EpsilonPolicyType = EpsilonPolicyType.DECAY,
+        update_per_episod: bool = True,
     ):
         self.policy = policy
         self.visited_states = {}
         self.epsilon: float = INFINIT
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
+        self.update_per_episod = update_per_episod
+        self.old_episod = 0
 
     def updateEpsilon(
         self,
@@ -162,23 +167,22 @@ class EpsilonPolicy:
         max_episodes=100,
     ):
         self.epsilon = epsilon
+        if self.update_per_episod:
+            if self.old_episod == episode_count:
+                return self.epsilon
+            else:
+                self.old_episod = episode_count
         if self.policy == EpsilonPolicyType.DECAY:
-            return self.updateEpsilon_Nonlinear(episode_count)
+            return self.updateEpsilon_linear(episode_count, max_episodes)
         elif self.policy == EpsilonPolicyType.SOFTLINEAR:
             return self.updateEpsilon_SoftLinear(episode_count, max_episodes)
         else:
             return False
 
-    def updateEpsilon_Nonlinear(self, episode_count):
+    def updateEpsilon_linear(self, episode_count, max_episodes):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
-        # Linear fallback for convergence
-        max_episodes = 50
-        linear_epsilon = max(
-            self.epsilon_min,
-            1.0 - (1.0 - self.epsilon_min) * (episode_count / max_episodes),
-        )
-        self.epsilon = min(self.epsilon, linear_epsilon)
+        self.epsilon = min(self.epsilon, self.epsilon_min)
         return self.epsilon
 
     def updateEpsilon_SoftLinear(self, episode_count, max_episodes=200):

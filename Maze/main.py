@@ -38,20 +38,20 @@ def main():
     game_size = 8
     max_frame = 0
     extra_paths = 10
-    episodes = 20
+    episodes = 50
     max_steps = 100
     render = False
 
     game = maze(game_size=game_size, max_frame=max_frame, extra_paths=extra_paths)
 
     state_size = 2
-    epsilon_min = 0.005
-    epsilon_decay = 0.9995
+    epsilon_min = 0.1
+    epsilon_decay = 0.9
     action_size = len(game.get_actions())
     ep_policy = EpsilonPolicy(
         epsilon_min,
         epsilon_decay,
-        policy=EpsilonPolicyType.SOFTLINEAR,
+        policy=EpsilonPolicyType.DECAY,
     )
     agent = General_DQN_Agent(
         action_size=action_size,
@@ -59,11 +59,12 @@ def main():
         learning_rate=0.001,
         gamma=0.99,
         epsilon=1.0,
-        batch_size=32,
+        batch_size=50,
         buffer_size=2000,
         epsilon_min=epsilon_min,
         epsilon_decay=epsilon_decay,
         epsilon_policy=ep_policy,
+        max_episodes=episodes,
     )
 
     game.print_maze(game.generate_visual_pattern())
