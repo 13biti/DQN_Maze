@@ -1,5 +1,5 @@
 import numpy as np
-from agent import EpsilonPolicyType, General_DQN_Agent, EpsilonPolicy
+from agent import EpsilonPolicyType, EpsilonPolicy, DQNAgent
 from MDP_maze import maze
 import time
 import pickle
@@ -53,7 +53,7 @@ def main():
         epsilon_decay,
         policy=EpsilonPolicyType.DECAY,
     )
-    agent = General_DQN_Agent(
+    agent = DQNAgent(
         action_size=action_size,
         state_size=state_size,
         learning_rate=0.001,
@@ -75,11 +75,13 @@ def main():
         done = False
 
         while not done and steps < max_steps:
-            action = agent.compute_action(state)
+            action = agent.select_action(state)
 
             is_success, info, reward, huristic, next_state, done = game.act(action)
 
-            agent.store_experience(state, next_state, reward, action, done, huristic)
+            agent.buffer_helper.store_experience(
+                state, next_state, reward, action, done, huristic
+            )
 
             loss = agent.train(episode)
             state = next_state
@@ -96,26 +98,6 @@ def main():
             f"loss : {loss} "
             f"{'Goal Reached' if done else 'Not Reached'}"
         )
-
-    print("\ntesting trained agent...")
-    state = game.reset(hard_reset=False)
-    steps = 0
-    done = False
-    total_reward = 0
-    game.print_maze(game.generate_visual_pattern())
-    while not done and steps < max_steps:
-        action = agent.compute_action(state)
-        is_success, info, reward, huristic, next_state, done = game.act(action)
-        state = next_state
-        total_reward += reward
-        steps += 1
-        if render:
-            game.print_maze(game.generate_visual_pattern())
-            time.sleep(0.5)
-    print(
-        f"Test Episode: Total Reward: {total_reward:.2f}, Steps: {steps}, "
-        f"{'Goal Reached' if done else 'Not Reached'}"
-    )
 
 
 if __name__ == "__main__":
