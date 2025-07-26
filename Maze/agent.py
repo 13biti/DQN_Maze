@@ -9,7 +9,10 @@ from enum import Enum
 
 class EpsilonPolicyType(Enum):
     DECAY = 0
-    ERM = 1
+
+
+class RewardPolicyType(Enum):
+    ERM = 0
 
 
 INFINIT = float("inf")
@@ -49,9 +52,7 @@ class General_DQN_Agent:
             else EpsilonPolicy(
                 epsilon_min=epsilon_min,
                 epsilon_decay=epsilon_decay,
-                progress_bonus=progress_bonus,
-                exploration_bonus=exploration_bonus,
-                policy=EpsilonPolicyType.ERM,
+                policy=EpsilonPolicyType.DECAY,
             )
         )
 
@@ -137,8 +138,6 @@ class EpsilonPolicy:
         self,
         epsilon_min: float = 0.01,
         epsilon_decay: float = 0.999,
-        progress_bonus: float = 0.05,
-        exploration_bonus: float = 0.1,
         policy: EpsilonPolicyType = EpsilonPolicyType.DECAY,
     ):
         self.policy = policy
@@ -146,18 +145,15 @@ class EpsilonPolicy:
         self.epsilon: float = INFINIT
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
-        self.old_huristic = INFINIT
-        self.progress_bonus = progress_bonus
-        self.exploration_bonus = exploration_bonus
         self.episode_count = 0
 
     def updateEpsilon(self, epsilon, state=None, heuristic=None):
         self.epsilon = epsilon
         self.episode_count += 1
-        if self.policy == EpsilonPolicyType.ERM:
-            return self.updateEpsilon_EMR(state, heuristic)
-        else:
+        if self.policy == EpsilonPolicyType.DECAY:
             return self.updateEpsilon_Nonlinear()
+        else:
+            return False
 
     def updateEpsilon_Nonlinear(self):
         if self.epsilon > self.epsilon_min:
@@ -171,12 +167,20 @@ class EpsilonPolicy:
         self.epsilon = min(self.epsilon, linear_epsilon)
         return self.epsilon
 
-    # this method is not complited,  for now , it only store visited states ,
-    # and give extera bonus for the states that are not visited yet , this way , model will encoraged to learn more about new enviroment
-    # i wish i can use it to improve rewards , but it need lots of changes , and also reward is not the problem
-    def updateEpsilon_EMR(self, state, heuristic=None):
-        # this part cassing the problem , update it with tuppels
-        # is_new_state = state not in self.visited_states
+
+def RewardHelper():
+    def __init__(
+        self,
+        progress_bonus: float = 0.05,
+        exploration_bonus: float = 0.1,
+        policy: RewardPolicyType = RewardPolicyType.ERM,
+    ):
+        self.progress_bonus = progress_bonus
+        self.exploration_bonus = progress_bonus
+        self.policy = policy
+        self.old_huristic = INFINIT
+
+    def ERM(self, state, reward, heuristic=None, lowerHuristicBetter=True):
         state_key = tuple(state.flatten()) if state is not None else None
         is_new_state = state_key is not None and state_key not in self.visited_states
         if is_new_state:
@@ -186,21 +190,14 @@ class EpsilonPolicy:
                 )
 
         progress = 0.0
-        # make mistake in here , lower heuristic in maze is better
         if heuristic is not None and state_key is not None:
             old_heuristic = self.visited_states[state_key]
             if (
-                old_heuristic != INFINIT and heuristic < old_heuristic
-            ):  # lower heuristic = progress
+                old_heuristic != INFINIT
+                and (heuristic < old_heuristic and lowerHuristicBetter)
+                or (heuristic > old_heuristic and not lowerHuristicBetter)
+            ):
                 progress = self.progress_bonus
                 self.visited_states[state_key] = heuristic
-
-        new_epsilon = self.epsilon
-        if new_epsilon > self.epsilon_min:
-            decay_factor = self.epsilon_decay
-            if is_new_state:
-                decay_factor = 0.995
-            if progress > 0:
-                decay_factor = 0.99
-            new_epsilon *= decay_factor
-        return new_epsilon
+        # work on here
+        return new_reward
