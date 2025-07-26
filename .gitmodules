@@ -1,0 +1,6 @@
+[submodule "external/DQN_Agent"]
+	path = external/DQN_Agent
+	url = https://github.com/13biti/DQN_Agent.git
+[submodule "DQN"]
+	path = DQN
+	url = https://github.com/13biti/DQN_Agent.git
