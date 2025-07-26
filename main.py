@@ -1,5 +1,5 @@
 import numpy as np
-from agent import EpsilonPolicyType, EpsilonPolicy, DQNAgent
+from DQN_Agent import EpsilonPolicyType, EpsilonPolicy, DQNAgent
 from MDP_maze import maze
 import time
 import pickle
