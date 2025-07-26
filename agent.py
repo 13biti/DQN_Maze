@@ -210,42 +210,37 @@ class General_DQN_Agent:
         epsilon=1.0,
         epsilon_min=0.01,
         epsilon_decay=0.995,
-        epsilon_policy=None,
-        reward_policy=RewardPolicyType.NONE,
+        epsilon_policy: EpsilonPolicy = None,
+        reward_policy: RewardPolicyType = RewardPolicyType.NONE,
         lowerHuristicBetter=True,
         progress_bonus: float = 0.05,
         exploration_bonus: float = 0.1,
     ) -> None:
         self.action_size = action_size
-        self.epsilon = epsilon
         self.state_size = state_size
-        self.lr = learning_rate
         self.gamma = gamma
+        self.batch_size = batch_size
+        self.epsilon = epsilon
+        self.episode_count = 0
+        self.max_episodes = max_episodes
+
+        self.model = QNetwork(state_size, action_size, learning_rate)
+        self.epsilon_policy = epsilon_policy or EpsilonPolicy(
+            epsilon_min=epsilon_min,
+            epsilon_decay=epsilon_decay,
+            policy=EpsilonPolicyType.DECAY,
+        )
         self.buffer_helper = Buffering(
             RewardHelper(progress_bonus, exploration_bonus, reward_policy),
             buffer_size=buffer_size,
             lowerHuristicBetter=lowerHuristicBetter,
         )
-        self.batch_size = batch_size
-        self.epsilon = epsilon
-        self.model = GetModel()
-        self.model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
-        self.epsilon_policy = (
-            epsilon_policy
-            if epsilon_policy is not None
-            else EpsilonPolicy(
-                epsilon_min=epsilon_min,
-                epsilon_decay=epsilon_decay,
-                policy=EpsilonPolicyType.DECAY,
-            )
-        )
-        self.episode_count = 0
-        self.max_episodes = max_episodes
 
-    def train(self, episod):
-        states, next_states, rewards, actions, dones, heuristics = (
-            self.buffer_helper.BulkData(self.batch_size)
-        )
+    def train(self, episode):
+        data = self.buffer_helper.BulkData(self.batch_size)
+        if data is None:
+            return None
+        states, next_states, rewards, actions, dones, heuristics = data
         q_current = self.model.predict(states, verbose=0)
         q_next = self.model.predict(next_states, verbose=0)
         q_targets = q_current.copy()
@@ -255,15 +250,12 @@ class General_DQN_Agent:
             else:
                 q_targets[i, actions[i]] = rewards[i]
             q_targets[i, actions[i]] = np.clip(q_targets[i, actions[i]], -10, 10)
-        self._handel_epsilon(episode_count=episod)
-        history = self.model.fit(states, q_targets, epochs=1, verbose=0)
-        loss = history.history["loss"][0]
+
+        self._handle_epsilon(episode_count=episode)
+        loss = self.model.fit(states, q_targets, epochs=1, verbose=0)
         return loss
 
-    # this method ment to handel epsilon update !
-    # update1 : still have jumps for that ,i try to smoting the epsilon balance ,
-    # this is the main idea e = max(epsilon_min , 1-((1-epsilon_min)/max_episodes).episode_count)
-    def _handel_epsilon(self, episode_count):
+    def _handle_epsilon(self, episode_count):
         self.epsilon = self.epsilon_policy.updateEpsilon(
             self.epsilon, episode_count=episode_count, max_episodes=self.max_episodes
         )
