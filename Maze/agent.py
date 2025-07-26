@@ -11,6 +11,7 @@ from enum import Enum
 class EpsilonPolicyType(Enum):
     NONE = 0
     DECAY = 1
+    SOFTLINEAR = 2
 
 
 class RewardPolicyType(Enum):
@@ -33,14 +34,14 @@ class General_DQN_Agent:
         epsilon=1.0,
         epsilon_min=0.01,
         epsilon_decay=0.995,
-        epsilon_policy=EpsilonPolicyType.NONE,
+        epsilon_policy=None,
         reward_policy=RewardPolicyType.NONE,
         lowerHuristicBetter=True,
         progress_bonus: float = 0.05,
         exploration_bonus: float = 0.1,
     ) -> None:
         self.action_size = action_size
-        self.epsilon = 1
+        self.epsilon = epsilon
         self.state_size = state_size
         self.lr = learning_rate
         self.gamma = gamma
@@ -62,13 +63,14 @@ class General_DQN_Agent:
         )
         self.rewarding = RewardHelper(progress_bonus, exploration_bonus, reward_policy)
         self.lowerHuristicBetter = lowerHuristicBetter
+        self.episode_count = 0
 
     def _initiate_model(self):
         return keras.Sequential(
             [
                 Input(shape=(self.state_size,)),
-                Dense(units=24, activation="relu"),
-                Dense(units=24, activation="relu"),
+                Dense(units=64, activation="relu"),
+                Dense(units=34, activation="relu"),
                 Dense(units=self.action_size, activation="linear"),
             ]
         )
@@ -97,7 +99,7 @@ class General_DQN_Agent:
             }
         )
 
-    def train(self):
+    def train(self, episod):
         if len(self.buffer_mem) < self.batch_size:
             return None
         batch = random.sample(self.buffer_mem, self.batch_size)
@@ -115,7 +117,10 @@ class General_DQN_Agent:
                 q_targets[i, actions[i]] = rewards[i] + self.gamma * np.max(q_next[i])
             else:
                 q_targets[i, actions[i]] = rewards[i]
-        self._handel_epsilon(states=states, heuristics=heuristics, max_episodes=50)
+            q_targets[i, actions[i]] = np.clip(q_targets[i, actions[i]], -10, 10)
+        self.epsilon = self.epsilon_policy.updateEpsilon(
+            self.epsilon, max_episodes=200, episode_count=episod
+        )
         history = self.model.fit(states, q_targets, epochs=1, verbose=0)
         loss = history.history["loss"][0]
         return loss
@@ -123,14 +128,8 @@ class General_DQN_Agent:
     # this method ment to handel epsilon update !
     # update1 : still have jumps for that ,i try to smoting the epsilon balance ,
     # this is the main idea e = max(epsilon_min , 1-((1-epsilon_min)/max_episodes).episode_count)
-    def _handel_epsilon(self, states, heuristics, max_episodes):
-        epsilon_values = []
-        for i in range(self.batch_size):
-            epsilon = self.epsilon_policy.updateEpsilon(
-                self.epsilon, states[i], heuristics[i]
-            )
-            epsilon_values.append(epsilon)
-        self.epsilon = np.mean(epsilon_values) if epsilon_values else self.epsilon
+    def _handel_epsilon(self, max_episodes, episode_count):
+        pass
 
     def compute_action(self, current_state):
         if np.random.uniform(0, 1) < self.epsilon:
@@ -147,7 +146,7 @@ class EpsilonPolicy:
     def __init__(
         self,
         epsilon_min: float = 0.01,
-        epsilon_decay: float = 0.999,
+        epsilon_decay: float = 0.995,
         policy: EpsilonPolicyType = EpsilonPolicyType.DECAY,
     ):
         self.policy = policy
@@ -155,26 +154,42 @@ class EpsilonPolicy:
         self.epsilon: float = INFINIT
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
-        self.episode_count = 0
 
-    def updateEpsilon(self, epsilon, state=None, heuristic=None):
+    def updateEpsilon(
+        self,
+        epsilon,
+        episode_count,
+        max_episodes=100,
+    ):
         self.epsilon = epsilon
-        self.episode_count += 1
         if self.policy == EpsilonPolicyType.DECAY:
-            return self.updateEpsilon_Nonlinear()
+            return self.updateEpsilon_Nonlinear(episode_count)
+        elif self.policy == EpsilonPolicyType.SOFTLINEAR:
+            return self.updateEpsilon_SoftLinear(episode_count, max_episodes)
         else:
             return False
 
-    def updateEpsilon_Nonlinear(self):
+    def updateEpsilon_Nonlinear(self, episode_count):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
         # Linear fallback for convergence
         max_episodes = 50
         linear_epsilon = max(
             self.epsilon_min,
-            1.0 - (1.0 - self.epsilon_min) * (self.episode_count / max_episodes),
+            1.0 - (1.0 - self.epsilon_min) * (episode_count / max_episodes),
         )
         self.epsilon = min(self.epsilon, linear_epsilon)
+        return self.epsilon
+
+    def updateEpsilon_SoftLinear(self, episode_count, max_episodes=200):
+        if self.epsilon > self.epsilon_min:
+            target_epsilon = max(
+                self.epsilon_min,
+                1.0 - (1.0 - self.epsilon_min) * (episode_count / max_episodes),
+            )
+            self.epsilon = self.epsilon * self.epsilon_decay + target_epsilon * (
+                1 - self.epsilon_decay
+            )
         return self.epsilon
 
 
@@ -219,5 +234,10 @@ class RewardHelper:
             ):
                 progress = self.progress_bonus
                 self.visited_states[state_key] = heuristic
-        # work on here
+
+        new_reward = reward
+        if is_new_state:
+            new_reward += self.exploration_bonus
+        if progress > 0:
+            new_reward += self.progress_bonus
         return new_reward

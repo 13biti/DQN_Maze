@@ -35,14 +35,15 @@ def load_maze_and_weights(game, agent, maze_filename, weights_filename):
 
 
 def main():
-    game_size = 4
+    game_size = 8
     max_frame = 0
     extra_paths = 10
-    episodes = 10
+    episodes = 20
     max_steps = 100
     render = False
 
     game = maze(game_size=game_size, max_frame=max_frame, extra_paths=extra_paths)
+
     state_size = 2
     epsilon_min = 0.005
     epsilon_decay = 0.9995
@@ -50,9 +51,7 @@ def main():
     ep_policy = EpsilonPolicy(
         epsilon_min,
         epsilon_decay,
-        progress_bonus=0.05,
-        exploration_bonus=0.1,
-        policy=EpsilonPolicyType.ERM,
+        policy=EpsilonPolicyType.SOFTLINEAR,
     )
     agent = General_DQN_Agent(
         action_size=action_size,
@@ -60,8 +59,8 @@ def main():
         learning_rate=0.001,
         gamma=0.99,
         epsilon=1.0,
-        batch_size=8,
-        buffer_size=100,
+        batch_size=32,
+        buffer_size=2000,
         epsilon_min=epsilon_min,
         epsilon_decay=epsilon_decay,
         epsilon_policy=ep_policy,
@@ -81,7 +80,7 @@ def main():
 
             agent.store_experience(state, next_state, reward, action, done, huristic)
 
-            loss = agent.train()
+            loss = agent.train(episode)
             state = next_state
             total_reward += reward
             steps += 1
