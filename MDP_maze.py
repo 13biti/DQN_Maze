@@ -43,7 +43,7 @@ class maze:
         #   and by increasing exploration it is possible to overfit or to make a wrong search .
         #
         #
-        self.reward_map = {0: -0.1, 1: 0, 2: 1}
+        self.reward_map = {0: -10, 1: 0, 2: 20}
         self.generate_playGround()
 
     # ----------------------------------

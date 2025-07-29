@@ -12,33 +12,6 @@ import pickle
 import os
 
 
-def save_maze_and_weights(game, agent, maze_filename, weights_filename):
-    maze_pattern = game.generate_visual_pattern()
-    with open(maze_filename, "wb") as f:
-        pickle.dump(maze_pattern, f)
-    agent.online_model._model.save_weights(weights_filename)
-    print(f"saved maze pattern to {maze_filename} and weights to {weights_filename}")
-
-
-def load_maze_and_weights(game, agent, maze_filename, weights_filename):
-    if not (os.path.exists(maze_filename) and os.path.exists(weights_filename)):
-        print("one or both files not found. Creating new maze.")
-        return False
-    try:
-        with open(maze_filename, "rb") as f:
-            maze_pattern = pickle.load(f)
-        game.generate_playGround_from_pattern(maze_pattern)
-        agent.online_model._model.load_weights(weights_filename)
-        agent.target_model.set_weights(agent.online_model.get_weights())
-        print(
-            f"loaded maze pattern from {maze_filename} and weights from {weights_filename}"
-        )
-        return True
-    except Exception as e:
-        print(f"error loading files: {e}")
-        return False
-
-
 def main():
     game_size = 8
     max_frame = 0
@@ -70,13 +43,15 @@ def main():
         epsilon_min=epsilon_min,
         epsilon_decay=epsilon_decay,
         epsilon_policy=ep_policy,
-        reward_policy=RewardPolicyType.ERM,
+        reward_policy=RewardPolicyType.NONE,
         prefer_lower_heuristic=True,
         progress_bonus=0.05,
         exploration_bonus=0.1,
         update_target_network_method=UpdateTargetNetworkType.HARD,
         update_factor=0.005,
         target_update_frequency=5,
+        reward_range=(-10, 20),
+        use_normalization=False,
     )
 
     game.print_maze(game.generate_visual_pattern())
