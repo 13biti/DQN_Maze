@@ -1,7 +1,6 @@
 import os
 import random
 from enum import Enum
-from getkey import getkey
 import numpy as np
 
 
