@@ -1,15 +1,14 @@
 import numpy as np
 from DQN.DQN_Agent import (
+    AgentFactory,
+    AgentType,
     EpsilonPolicyType,
-    DuelingDQNAgent,
     EpsilonPolicy,
     UpdateTargetNetworkType,
     RewardPolicyType,
 )
-from MDP_maze import maze
+from MazeGame.MDP_maze import maze
 import time
-import pickle
-import os
 
 
 def main():
@@ -31,7 +30,8 @@ def main():
         epsilon_decay=epsilon_decay,
         policy=EpsilonPolicyType.DECAY,
     )
-    agent = DuelingDQNAgent(
+    agent = AgentFactory.create_agent(
+        AgentType.DUELING_DQN,
         action_size=action_size,
         state_size=state_size,
         learning_rate=0.001,
@@ -44,14 +44,13 @@ def main():
         epsilon_decay=epsilon_decay,
         epsilon_policy=ep_policy,
         reward_policy=RewardPolicyType.NONE,
-        prefer_lower_heuristic=True,
         progress_bonus=0.05,
         exploration_bonus=0.1,
         update_target_network_method=UpdateTargetNetworkType.SOFT,
+        update_factor=0.8,
         target_update_frequency=5,
         reward_range=(-10, 20),
         use_normalization=False,
-        update_factor=0.8,
     )
 
     game.print_maze(game.generate_visual_pattern())
@@ -65,9 +64,7 @@ def main():
         while not done and steps < max_steps:
             action = agent.select_action(state)
             is_success, info, reward, huristic, next_state, done = game.act(action)
-            agent.buffer_helper.store_experience(
-                state, next_state, reward, action, done, huristic
-            )
+            agent.store_experience(state, next_state, reward, action, done, huristic)
             loss = agent.train(episode)
             state = next_state
             total_reward += reward
@@ -80,7 +77,7 @@ def main():
             success_count += 1
         print(
             f"Episode {episode + 1}/{episodes}, Total Reward: {total_reward:.2f}, "
-            f"Steps: {steps}, Epsilon: {agent.epsilon:.3f}, "
+            f"Steps: {steps}, Epsilon: {agent.get_epsilon():.3f}, "
             f"Loss: {loss}, Success Rate: {success_count / (episode + 1):.2%}, "
             f"{'Goal Reached' if done else 'Not Reached'}"
         )
